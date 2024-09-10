@@ -10,7 +10,6 @@ const schemaOptions = [
   { label: 'State', value: 'state' },
 ];
 
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
 const WEBHOOK_URL = 'https://webhook.site/d2ace6fc-7199-4116-aad4-bf6ecb0f32e7';
 
 const SegmentCreator = () => {
@@ -49,33 +48,44 @@ const SegmentCreator = () => {
   const handleSaveToServer = async () => {
     setIsSaving(true);
     setSaveError('');
-
+  
     const data = {
       segment_name: segmentName,
       schema: selectedSchemas.map(schema => ({ [schema]: schemaOptions.find(opt => opt.value === schema).label }))
     };
-
+  
     try {
-        const response = await fetch(CORS_PROXY + WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
-      
-        if (response.ok) {
-          console.log('Data sent successfully to webhook');
-          handleClosePopup();
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+  
+      if (response.ok) {
+        console.log('Data sent successfully to webhook');
+        handleClosePopup();
+      } else {
+        let errorMessage = 'Failed to save segment. ';
+        switch (response.status) {
+          case 403:
+            errorMessage += 'Access forbidden. Please check your authentication.';
+            break;
+          case 404:
+            errorMessage += 'Endpoint not found. Please verify the webhook URL.';
+            break;
+          default:
+            errorMessage += `Server responded with status: ${response.status}`;
         }
-      } catch (error) {
-        console.error('Error sending data to webhook:', error);
-        setSaveError('Failed to save segment. Please try again.');
-      } finally {
-        setIsSaving(false);
+        throw new Error(errorMessage);
       }
+    } catch (error) {
+      console.error('Error sending data to webhook:', error);
+      setSaveError(error.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const availableOptions = schemaOptions.filter(option => !selectedSchemas.includes(option.value));
